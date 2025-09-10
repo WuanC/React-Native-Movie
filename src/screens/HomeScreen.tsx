@@ -1,108 +1,140 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, ActivityIndicator } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import { getPopularMovies } from '../api/movieApi';
+import { PopularCard } from '../components/PopularCard';
+import SearchBar from '../components/SearchBar';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
+import { useNavigation } from '@react-navigation/native';
 
-const mockMovies = [
-  { id: "1", title: "Moana 2", poster: "https://image.tmdb.org/t/p/w500/2.jpg" },
-  { id: "2", title: "Thor", poster: "https://image.tmdb.org/t/p/w500/3.jpg" },
-  { id: "3", title: "Avatar", poster: "https://image.tmdb.org/t/p/w500/4.jpg" },
-];
+const backgroundImage = require('../../assets/MovieApp/images/bg.png');
+type SearchBarNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Search'>;
 const HomeScreen = () => {
-    return (
-<ScrollView style={styles.container}>
+  const [movies, setMovies] = useState<any>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const navigation = useNavigation<SearchBarNavigationProp>();
+  const onSubmit = () => {
+    if(!query.trim()) return;
+    navigation.navigate('Search', { query });
+  }
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>🎬 MyMovieApp</Text>
-        <View style={styles.avatar} />
-      </View>
+  useEffect(() => {
+    const fetchMovies = async () => {
+      try {
+        const response = await getPopularMovies();
+        setMovies(response.data.results);
+      } catch (error) {
+        console.error("Error fetching movies:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMovies();
+  }, []);
 
-      {/* Search bar */}
-      <TextInput
-        style={styles.searchBar}
-        placeholder="Search through 200k+ movies online"
-        placeholderTextColor="#999"
+  return (
+    <View style={styles.container}>
+      <Image
+        resizeMode="cover"
+        source={backgroundImage}
+        style={styles.backgroundImage}
       />
-
-      {/* Popular movies */}
-      <Text style={styles.sectionTitle}>Popular movies</Text>
-      <FlatList
-        data={mockMovies}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.movieCard}>
-            <Image source={{ uri: item.poster }} style={styles.poster} />
-            <Text style={styles.movieTitle}>{item.title}</Text>
-          </View>
-        )}
-      />
-
-      {/* Latest movies */}
-      <Text style={styles.sectionTitle}>Latest movies</Text>
-      <View style={styles.grid}>
-        {mockMovies.map((item) => (
-          <View key={item.id} style={styles.movieCardGrid}>
-            <Image source={{ uri: item.poster }} style={styles.posterGrid} />
-            <Text style={styles.movieTitle}>{item.title}</Text>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
-    );
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#fff"
+          style={styles.loader}
+        />
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.contentContainer}
+          style={styles.scroll}
+        >
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            onSubmit= {onSubmit}
+            placeholder="Search movies..."
+          />
+          <Text style={styles.sectionTitle}>Popular Movies</Text>
+          <FlatList
+            data={movies}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item, index }) => (
+              <PopularCard
+                id={item.id}
+                title={item.title}
+                poster_path={`https://image.tmdb.org/t/p/w500${item.poster_path}`}
+                vote_average={item.vote_average}
+                index={index}
+              />
+            )}
+          />
+        </ScrollView>
+      )}
+    </View>
+  );
 };
+
 export default HomeScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0d0d1a",
     paddingHorizontal: 16,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  backgroundImage: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    zIndex: 0,
+    opacity: 0.2, // làm mờ background
+  },
+  loader: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 40,
-    marginBottom: 20,
   },
-  logo: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
+  scroll: {
+    flex: 1,
+    paddingHorizontal: 12,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#444",
-  },
-  searchBar: {
-    backgroundColor: "#1a1a2e",
-    padding: 12,
-    borderRadius: 10,
-    color: "#fff",
-    marginBottom: 20,
+  contentContainer: {
+    minHeight: "100%",
+    paddingBottom: 20,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#fff",
-    marginBottom: 10,
+    marginBottom: 16,
   },
   movieCard: {
-    marginRight: 12,
-    width: 120,
+    marginRight: 14,
+    width: 140,
   },
   poster: {
-    width: 120,
-    height: 180,
-    borderRadius: 10,
+    width: 140,
+    height: 210,
+    borderRadius: 14,
+    backgroundColor: "#222",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6, // đổ bóng trên Android
   },
   movieTitle: {
     color: "#fff",
-    marginTop: 5,
+    marginTop: 6,
     fontSize: 14,
+    fontWeight: "500",
   },
   grid: {
     flexDirection: "row",
@@ -111,11 +143,17 @@ const styles = StyleSheet.create({
   },
   movieCardGrid: {
     width: "48%",
-    marginBottom: 16,
+    marginBottom: 18,
   },
   posterGrid: {
     width: "100%",
-    height: 200,
-    borderRadius: 10,
+    height: 220,
+    borderRadius: 14,
+    backgroundColor: "#222",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
   },
 });
